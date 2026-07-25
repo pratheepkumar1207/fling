@@ -15,6 +15,9 @@ router.post('/token', (req, res) => {
 
   const appId = process.env.AGORA_APP_ID;
   const appCertificate = process.env.AGORA_APP_CERTIFICATE;
+  if (!appId || !appCertificate) {
+    return res.status(503).json({ error: 'Agora is not configured — set AGORA_APP_ID and AGORA_APP_CERTIFICATE to enable calls.' });
+  }
   const expireSeconds = 3600; // 1 hour — reasonable for a watch-party session
 
   const currentTs = Math.floor(Date.now() / 1000);
