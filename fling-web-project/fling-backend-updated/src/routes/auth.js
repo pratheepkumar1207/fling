@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const admin = require('../config/firebaseAdmin');
+const { admin, ensureInitialized } = require('../config/firebaseAdmin');
 const User = require('../models/User');
 const requireAuth = require('../middleware/requireAuth');
 
@@ -12,6 +12,7 @@ router.post('/firebase', async (req, res) => {
   if (!idToken) return res.status(400).json({ error: 'Missing idToken' });
 
   try {
+    ensureInitialized();
     const decoded = await admin.auth().verifyIdToken(idToken);
     const phone = decoded.phone_number;
     if (!phone) return res.status(400).json({ error: 'Token has no phone number' });
@@ -35,7 +36,7 @@ router.post('/firebase', async (req, res) => {
       user: { id: user.id, name: user.name, phone: user.phone, coinBalance: user.coinBalance },
     });
   } catch (e) {
-    res.status(401).json({ error: 'Invalid Firebase token' });
+    res.status(401).json({ error: e.message || 'Invalid Firebase token' });
   }
 });
 
