@@ -6,11 +6,22 @@ const requireAuth = require('../middleware/requireAuth');
 // TODO: set up a Google Cloud service account with Drive API access, and
 // either share the relevant Drive files/folder with the service account's
 // email, or use domain-wide delegation if these are Workspace files.
-// Save the service account key as driveServiceAccount.json (gitignored).
-const auth = new google.auth.GoogleAuth({
-  keyFile: './driveServiceAccount.json',
-  scopes: ['https://www.googleapis.com/auth/drive.readonly'],
-});
+//
+// Two ways to supply the key, same pattern as firebaseAdmin.js:
+//   - DRIVE_SERVICE_ACCOUNT_JSON env var (whole JSON file's contents,
+//     single line) — use this on Railway/any host without the file committed
+//   - a local driveServiceAccount.json file (gitignored) for local dev
+const auth = new google.auth.GoogleAuth(
+  process.env.DRIVE_SERVICE_ACCOUNT_JSON
+    ? {
+        credentials: JSON.parse(process.env.DRIVE_SERVICE_ACCOUNT_JSON),
+        scopes: ['https://www.googleapis.com/auth/drive.readonly'],
+      }
+    : {
+        keyFile: './driveServiceAccount.json',
+        scopes: ['https://www.googleapis.com/auth/drive.readonly'],
+      }
+);
 const drive = google.drive({ version: 'v3', auth });
 
 router.use(requireAuth);
