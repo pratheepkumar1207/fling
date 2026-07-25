@@ -8,10 +8,22 @@ const Transaction = require('../models/Transaction');
 const requireAuth = require('../middleware/requireAuth');
 const { sendPushToUser } = require('../services/push');
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+// Constructed lazily (on first real use) rather than at module load, so a
+// missing RAZORPAY_KEY_ID/SECRET doesn't crash the entire backend before
+// you've had a chance to add real payment keys — it only affects the
+// buy/verify routes below, which will return a clear error instead.
+let razorpay = null;
+function getRazorpay() {
+  if (razorpay) return razorpay;
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    throw new Error('Razorpay is not configured — set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to enable buying coins.');
+  }
+  razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  });
+  return razorpay;
+}
 
 const COINS_PER_RUPEE = parseFloat(process.env.COINS_PER_RUPEE_ON_BUY || '2');
 const CASHOUT_FRACTION = parseFloat(process.env.CASHOUT_FRACTION_OF_BUY_RATE || '0.3333');
@@ -30,7 +42,14 @@ router.post('/buy/order', async (req, res) => {
   const { rupees } = req.body;
   if (!rupees || rupees <= 0) return res.status(400).json({ error: 'Invalid amount' });
 
-  const order = await razorpay.orders.create({
+  let razorpayClient;
+  try {
+    razorpayClient = getRazorpay();
+  } catch (e) {
+    return res.status(503).json({ error: e.message });
+  }
+
+  const order = await razorpayClient.orders.create({
     amount: Math.round(rupees * 100), // paise
     currency: 'INR',
     notes: { userId: req.userId, coins: rupees * COINS_PER_RUPEE },
